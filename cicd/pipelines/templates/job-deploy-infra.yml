@@ -1,0 +1,30 @@
+parameters:
+  - name: VARS_FILE
+    type: string
+    default: ""
+  - name: TERRAFORM_ARTIFACT
+  - name: DEPENDS_ON
+    type: string
+    default: ""
+  - name: ENVIRONMENT_NAME
+  - name: AZURE_SUBSCRIPTION
+  - name: TF_STATE_ACCOUNT
+  - name: TF_STATE_RESOURCE_GROUP
+  - name: TF_ENV
+  - name: TF_APPLY
+    default: true
+  - name: TF_AUTO_APPROVE
+    default: true
+  - name: STORAGE_CONTAINER_PREFIX
+
+jobs:
+  - template: /infra-terraform/terraform-environment.yaml@devops
+    parameters:
+      terraformArtifact: ${{ parameters.TERRAFORM_ARTIFACT }}
+      accountStorageName: ${{ parameters.TF_STATE_ACCOUNT }}
+      accountStorageResourceGroup: ${{ parameters.TF_STATE_RESOURCE_GROUP }}
+      storageContainerName: ${{ parameters.STORAGE_CONTAINER_PREFIX }}-${{ parameters.TF_ENV }}
+      serviceConnection: ${{ parameters.AZURE_SUBSCRIPTION }}
+      terraformStateFile: terraform.tfstate
+      environment: ${{ parameters.ENVIRONMENT_NAME }}
+      varsFile: "variables/${{parameters.TF_ENV}}.tfvars"
