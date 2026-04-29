@@ -109,22 +109,6 @@ module "keyvault" {
   }
 }
 
-# DevOps service principal — full Key Vault access for pipeline use
-resource "azurerm_key_vault_access_policy" "devops" {
-  key_vault_id = module.keyvault.key_vault_id
-  tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = data.azurerm_client_config.current.object_id
-
-  key_permissions = [
-    "Backup", "Create", "Decrypt", "Delete", "Encrypt", "Get", "Import", "List",
-    "Purge", "Recover", "Restore", "Sign", "UnwrapKey", "Update", "Verify", "WrapKey"
-  ]
-
-  secret_permissions = [
-    "Backup", "Delete", "Get", "List", "Purge", "Recover", "Restore", "Set"
-  ]
-}
-
 # Web app managed identity — read secrets at runtime
 resource "azurerm_key_vault_access_policy" "webapp" {
   key_vault_id = module.keyvault.key_vault_id
