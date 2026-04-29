@@ -24,13 +24,23 @@ AI-powered policy analysis platform built on Azure, deployed via Azure DevOps pi
 
 ```
 .
+├── app/                             # FastAPI application
+│   ├── main.py
+│   ├── config.py
+│   ├── routes/
+│   └── services/
+├── tests/                           # pytest test suite
+│   └── test_health.py
+├── Dockerfile                       # Container image definition
+├── pytest.ini                       # pytest config (sets pythonpath = .)
+├── requirements.txt
 ├── .claude/
 │   ├── commands/
 │   │   └── branch-commit-skill.md   # /branch-commit-skill slash command
 │   └── settings.local.json          # Claude Code git permissions
 ├── cicd/
 │   ├── pipelines/
-│   │   └── build-and-deploy.yml     # Main CI/CD pipeline
+│   │   └── app-build-and-deploy.yml # App CI/CD pipeline (build, push, deploy)
 │   └── tf/                          # Terraform root module
 │       ├── main.tf
 │       ├── locals.tf
@@ -89,20 +99,34 @@ The pipeline reads the following variables from the Azure DevOps Library group `
 
 ---
 
-## Pipeline — `build-and-deploy.yml`
+## Pipeline — `app-build-and-deploy.yml`
+
+Manually triggered pipeline that builds, pushes, and deploys the containerised FastAPI app.
+
+### Parameters
+
+| Parameter   | Default | Values       | Description                                  |
+|-------------|---------|--------------|----------------------------------------------|
+| `ENVIRONMENT` | `dev` | `dev`, `prod` | Target environment                          |
+| `TAG`         | _(empty)_ | any string | Docker image tag — defaults to build number |
 
 ### Stages
 
-| Stage | Description | Condition |
-|---|---|---|
-| `BuildPushImages` | Publishes Terraform artifact | `DEPLOY = true` |
-| `DeployBaseInfraToCI` | Terraform apply to dev environment | After build |
-| `ApproveProd` | Manual approval gate | After CI passes |
-| `DeployBaseInfraToPROD` | Terraform apply to prod environment | After approval |
+| Stage          | Description                                          | Condition          |
+|----------------|------------------------------------------------------|--------------------|
+| `BuildAndTest` | Installs dependencies, runs pytest, publishes results | Always             |
+| `BuildAndPush` | `docker build` + `docker push` to ACR                | After tests pass   |
+| `DeployApp`    | Updates App Service container image and restarts     | After image pushed |
 
 ### Trigger
-- Automatic on push to `main`
-- Manual via `Force Deploy?` parameter
+- Manual only (`trigger: none`) — run from Azure DevOps Pipelines UI
+
+### App Service URLs
+
+| Environment | URL |
+|-------------|-----|
+| Dev  | `https://polanalyai-infra-dev-api.azurewebsites.net`  |
+| Prod | `https://polanalyai-infra-prod-api.azurewebsites.net` |
 
 ---
 
