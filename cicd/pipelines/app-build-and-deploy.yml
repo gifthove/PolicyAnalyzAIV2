@@ -1,0 +1,113 @@
+trigger: none
+
+parameters:
+- name: ENVIRONMENT
+  displayName: Environment
+  type: string
+  default: dev
+  values:
+  - dev
+  - prod
+- name: TAG
+  displayName: Image Tag (leave blank to use Build.BuildNumber)
+  type: string
+  default: ""
+
+variables:
+- name: IMAGE_NAME
+  value: policyanalyzai/api
+- name: IMAGE_TAG
+  ${{ if ne(parameters.TAG, '') }}:
+    value: ${{ parameters.TAG }}
+  ${{ else }}:
+    value: "$(Build.BuildNumber)"
+- name: ACR_NAME
+  ${{ if eq(parameters.ENVIRONMENT, 'prod') }}:
+    value: polanalyaiprodacr
+  ${{ else }}:
+    value: polanalyaidevacr
+- name: APP_SERVICE_NAME
+  ${{ if eq(parameters.ENVIRONMENT, 'prod') }}:
+    value: polanalyai-infra-prod-api
+  ${{ else }}:
+    value: polanalyai-infra-dev-api
+- name: RESOURCE_GROUP
+  ${{ if eq(parameters.ENVIRONMENT, 'prod') }}:
+    value: polanalyai-infra-prod-rg
+  ${{ else }}:
+    value: polanalyai-infra-dev-rg
+- group: PolicyAnalyzAIInfra
+
+pool:
+  vmImage: "ubuntu-latest"
+
+stages:
+# ── Stage 1: Build & Test ──────────────────────────────────────────────────
+- stage: BuildAndTest
+  displayName: Build & Test
+  jobs:
+  - job: RunTests
+    displayName: Run Python Tests
+    steps:
+    - task: UsePythonVersion@0
+      displayName: Use Python 3.12
+      inputs:
+        versionSpec: "3.12"
+
+    - script: |
+        pip install --no-cache-dir -r requirements.txt
+        pytest --junitxml=$(Build.ArtifactStagingDirectory)/test-results.xml -v
+      displayName: Install dependencies & run tests
+
+    - task: PublishTestResults@2
+      displayName: Publish test results
+      condition: always()
+      inputs:
+        testResultsFormat: JUnit
+        testResultsFiles: "$(Build.ArtifactStagingDirectory)/test-results.xml"
+        failTaskOnFailedTests: true
+
+# ── Stage 2: Build & push Docker image ────────────────────────────────────
+- stage: BuildAndPush
+  displayName: Build & Push Image
+  dependsOn: BuildAndTest
+  condition: succeeded()
+  jobs:
+  - job: BuildAndPushImage
+    displayName: Build & push to $(ACR_NAME)
+    steps:
+    - task: AzureCLI@2
+      displayName: Docker build & push → $(ACR_NAME)
+      inputs:
+        azureSubscription: $(AZURE_SUBSCRIPTION)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          az acr login --name $(ACR_NAME)
+          docker build -t $(ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG) .
+          docker push $(ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG)
+
+# ── Stage 3: Deploy container to App Service ──────────────────────────────
+- stage: DeployApp
+  displayName: Deploy to ${{ parameters.ENVIRONMENT }} App Service
+  dependsOn: BuildAndPush
+  condition: succeeded()
+  jobs:
+  - job: UpdateAppService
+    displayName: Update App Service container
+    steps:
+    - task: AzureCLI@2
+      displayName: Point $(APP_SERVICE_NAME) → $(IMAGE_NAME):$(IMAGE_TAG)
+      inputs:
+        azureSubscription: $(AZURE_SUBSCRIPTION)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          az webapp config container set \
+            --name $(APP_SERVICE_NAME) \
+            --resource-group $(RESOURCE_GROUP) \
+            --container-image-name $(ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG)
+
+          az webapp restart \
+            --name $(APP_SERVICE_NAME) \
+            --resource-group $(RESOURCE_GROUP)

@@ -17,8 +17,8 @@ resource "azurerm_cognitive_deployment" "embedding" {
     version = "2"
   }
 
-  scale {
-    type     = "Standard"
+  sku {
+    name     = "Standard"
     capacity = 10
   }
 }
@@ -32,9 +32,9 @@ resource "azurerm_cognitive_deployment" "chat" {
     name    = "gpt-4.1"
     version = "2025-04-14"
   }
-
-  scale {
-    type     = "GlobalStandard"
+        
+  sku {
+    name     = "GlobalStandard"
     capacity = 10
   }
 }
