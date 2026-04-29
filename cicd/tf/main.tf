@@ -81,7 +81,7 @@ module "appservice" {
   app_settings = {
     "AZURE_OPENAI_ENDPOINT"                    = module.openai.endpoint
     "AZURE_OPENAI_EMBEDDING_DEPLOYMENT"        = "text-embedding-ada-002"
-    "AZURE_OPENAI_CHAT_DEPLOYMENT"             = "gpt-4o"
+    "AZURE_OPENAI_CHAT_DEPLOYMENT"             = "gpt-4.1"
     "AZURE_SEARCH_ENDPOINT"                    = module.aisearch.endpoint
     "AZURE_BLOB_CONTAINER"                     = "documents"
     "AZURE_STORAGE_ACCOUNT_NAME"               = module.storage.account_name
@@ -107,22 +107,6 @@ module "keyvault" {
     "appinsights--connection--string"         = module.appinsights.connection_string
     "acr--login--server"                      = module.acr.login_server
   }
-}
-
-# DevOps service principal — full Key Vault access for pipeline use
-resource "azurerm_key_vault_access_policy" "devops" {
-  key_vault_id = module.keyvault.key_vault_id
-  tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = data.azurerm_client_config.current.object_id
-
-  key_permissions = [
-    "Backup", "Create", "Decrypt", "Delete", "Encrypt", "Get", "Import", "List",
-    "Purge", "Recover", "Restore", "Sign", "UnwrapKey", "Update", "Verify", "WrapKey"
-  ]
-
-  secret_permissions = [
-    "Backup", "Delete", "Get", "List", "Purge", "Recover", "Restore", "Set"
-  ]
 }
 
 # Web app managed identity — read secrets at runtime
