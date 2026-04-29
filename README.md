@@ -53,7 +53,7 @@ AI-powered policy analysis platform built on Azure, deployed via Azure DevOps pi
 The Terraform backend (state storage) must exist before any pipeline run. Create it once manually:
 
 ```bash
-az account set --subscription ecf4084a-cc2d-47b8-90cb-25ce30e51c15
+az account set --subscription <your-subscription-id>
 
 az group create -n polanalyai-state-rg -l australiaeast
 
@@ -73,7 +73,7 @@ Grant the pipeline service principal **Storage Blob Data Contributor** on `paiv2
 az role assignment create \
   --role "Storage Blob Data Contributor" \
   --assignee <pipeline-service-principal-object-id> \
-  --scope /subscriptions/ecf4084a-cc2d-47b8-90cb-25ce30e51c15/resourceGroups/polanalyai-state-rg/providers/Microsoft.Storage/storageAccounts/paiv2stateacc
+  --scope /subscriptions/<your-subscription-id>/resourceGroups/polanalyai-state-rg/providers/Microsoft.Storage/storageAccounts/paiv2stateacc
 ```
 
 ---
@@ -84,7 +84,7 @@ The pipeline reads the following variables from the Azure DevOps Library group `
 
 | Variable | Value | Used for |
 |---|---|---|
-| `AZURE_SUBSCRIPTION` | `zolla-svc-connection` | Azure service connection name |
+| `AZURE_SUBSCRIPTION` | your Azure DevOps service connection name | Azure service connection name |
 | `TESTERS_EMAILS` | approval email address | Prod approval gate |
 
 ---
