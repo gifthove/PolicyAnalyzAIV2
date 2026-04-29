@@ -24,13 +24,13 @@ resource "azurerm_cognitive_deployment" "embedding" {
 }
 
 resource "azurerm_cognitive_deployment" "chat" {
-  name                 = "gpt-4o"
+  name                 = "gpt-4.1"
   cognitive_account_id = azurerm_cognitive_account.openai.id
 
   model {
     format  = "OpenAI"
-    name    = "gpt-4o"
-    version = "2024-11-20"
+    name    = "gpt-4.1"
+    version = "2025-04-14"
   }
 
   scale {
