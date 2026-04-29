@@ -82,10 +82,10 @@ az role assignment create \
 
 The pipeline reads the following variables from the Azure DevOps Library group `PolicyAnalyzAIInfra`:
 
-| Variable | Value | Used for |
-|---|---|---|
-| `AZURE_SUBSCRIPTION` | your Azure DevOps service connection name | Azure service connection name |
-| `TESTERS_EMAILS` | approval email address | Prod approval gate |
+| Variable              | Value                                     | Used for                      |
+|-----------------------|-------------------------------------------|-------------------------------|
+| `AZURE_SUBSCRIPTION`  | your Azure DevOps service connection name | Azure service connection name |
+| `TESTERS_EMAILS`      | approval email address                    | Prod approval gate            |
 
 ---
 
@@ -124,10 +124,10 @@ The web app managed identity is granted `Get`/`List` secret permissions via a se
 
 ### OpenAI Deployments
 
-| Deployment | Model | SKU |
-|---|---|---|
-| `text-embedding-ada-002` | text-embedding-ada-002 v2 | Standard |
-| `gpt-4.1` | gpt-4.1 (2025-04-14) | GlobalStandard |
+| Deployment                | Model                     | SKU              |
+|---------------------------|---------------------------|------------------|
+| `text-embedding-ada-002`  | text-embedding-ada-002 v2 | Standard         |
+| `gpt-4.1`                 | gpt-4.1 (2025-04-14)      | GlobalStandard   |
 
 > `GlobalStandard` is required for `gpt-4.1` in the `australiaeast` region.
 
@@ -135,8 +135,8 @@ The web app managed identity is granted `Get`/`List` secret permissions via a se
 
 ## Claude Code Slash Commands
 
-| Command | Description |
-|---|---|
+| Command                | Description                                                      |
+|------------------------|------------------------------------------------------------------|
 | `/branch-commit-skill` | Create a new branch, stage changes, commit, and push in one step |
 
 ### Usage
