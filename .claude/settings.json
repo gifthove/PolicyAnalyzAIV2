@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git rebase *)",
+      "Bash(gh pr create --title 'Fix CI: add pytest.ini so app module resolves in tests' --body ' *)",
+      "WebSearch"
+    ]
+  }
+}
