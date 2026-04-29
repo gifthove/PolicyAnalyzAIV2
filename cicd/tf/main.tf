@@ -81,7 +81,7 @@ module "appservice" {
   app_settings = {
     "AZURE_OPENAI_ENDPOINT"                    = module.openai.endpoint
     "AZURE_OPENAI_EMBEDDING_DEPLOYMENT"        = "text-embedding-ada-002"
-    "AZURE_OPENAI_CHAT_DEPLOYMENT"             = "gpt-4o"
+    "AZURE_OPENAI_CHAT_DEPLOYMENT"             = "gpt-4.1"
     "AZURE_SEARCH_ENDPOINT"                    = module.aisearch.endpoint
     "AZURE_BLOB_CONTAINER"                     = "documents"
     "AZURE_STORAGE_ACCOUNT_NAME"               = module.storage.account_name
