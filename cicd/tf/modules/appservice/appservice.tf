@@ -22,9 +22,9 @@ resource "azurerm_linux_web_app" "app" {
 
     application_stack {
       docker_image_name        = var.docker_image
-      docker_registry_server_url      = "https://${var.acr_login_server}"
-      docker_registry_server_username = var.acr_username
-      docker_registry_server_password = var.acr_password
+      docker_registry_url      = "https://${var.acr_login_server}"
+      docker_registry_username = var.acr_username
+      docker_registry_password = var.acr_password
     }
   }
 
