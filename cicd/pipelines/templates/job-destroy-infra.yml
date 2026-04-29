@@ -1,0 +1,43 @@
+parameters:
+  - name: TERRAFORM_ARTIFACT
+  - name: ENVIRONMENT_NAME
+  - name: AZURE_SUBSCRIPTION
+  - name: TF_STATE_ACCOUNT
+  - name: TF_STATE_RESOURCE_GROUP
+  - name: TF_ENV
+  - name: STORAGE_CONTAINER_PREFIX
+
+jobs:
+  - job: DestroyInfra_${{ parameters.TF_ENV }}
+    displayName: "Terraform Destroy (${{ parameters.TF_ENV }})"
+    steps:
+      - download: current
+        artifact: ${{ parameters.TERRAFORM_ARTIFACT }}
+
+      - task: TerraformInstaller@1
+        displayName: Install Terraform
+        inputs:
+          terraformVersion: "latest"
+
+      - task: TerraformTaskV4@4
+        displayName: Terraform Init
+        inputs:
+          provider: azurerm
+          command: init
+          workingDirectory: $(Pipeline.Workspace)/${{ parameters.TERRAFORM_ARTIFACT }}
+          backendServiceArm: ${{ parameters.AZURE_SUBSCRIPTION }}
+          backendAzureRmResourceGroupName: ${{ parameters.TF_STATE_RESOURCE_GROUP }}
+          backendAzureRmStorageAccountName: ${{ parameters.TF_STATE_ACCOUNT }}
+          backendAzureRmContainerName: ${{ parameters.STORAGE_CONTAINER_PREFIX }}-${{ parameters.TF_ENV }}
+          backendAzureRmKey: terraform.tfstate
+
+      - task: TerraformTaskV4@4
+        displayName: Terraform Destroy
+        inputs:
+          provider: azurerm
+          command: destroy
+          workingDirectory: $(Pipeline.Workspace)/${{ parameters.TERRAFORM_ARTIFACT }}
+          commandOptions: >-
+            -auto-approve
+            -var-file="variables/${{ parameters.TF_ENV }}.tfvars"
+          environmentServiceNameAzureRM: ${{ parameters.AZURE_SUBSCRIPTION }}

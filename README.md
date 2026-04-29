@@ -6,17 +6,17 @@ AI-powered policy analysis platform built on Azure, deployed via Azure DevOps pi
 
 ## Architecture
 
-| Layer | Technology |
-|---|---|
-| API | FastAPI (Python), containerised via Docker |
-| Container Registry | Azure Container Registry (ACR) |
-| Hosting | Azure App Service (Linux, Docker) |
-| AI | Azure OpenAI (`gpt-4.1`), Azure AI Search |
-| Storage | Azure Blob Storage |
-| Secrets | Azure Key Vault |
-| Observability | Application Insights + Log Analytics |
-| IaC | Terraform (azurerm ~>3.0) |
-| CI/CD | Azure DevOps Pipelines |
+| Layer              | Technology                                 |
+|--------------------|--------------------------------------------|
+| API                | FastAPI (Python), containerised via Docker |
+| Container Registry | Azure Container Registry (ACR)             |
+| Hosting            | Azure App Service (Linux, Docker)          |
+| AI                 | Azure OpenAI (`gpt-4.1`), Azure AI Search  |
+| Storage            | Azure Blob Storage                         |
+| Secrets            | Azure Key Vault                            |
+| Observability      | Application Insights + Log Analytics       |
+| IaC                | Terraform (azurerm ~>3.0)                  |
+| CI/CD              | Azure DevOps Pipelines                     |
 
 ---
 
