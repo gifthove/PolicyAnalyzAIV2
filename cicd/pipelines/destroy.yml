@@ -31,11 +31,7 @@ stages:
     - publish: $(Build.SourcesDirectory)/cicd/tf
       artifact: tf
 
-- stage: ApproveProdDestroy
-  displayName: Approve PROD Destroy
-  dependsOn: PublishTerraform
-  condition: and(succeeded(), eq('${{ parameters.ENVIRONMENT }}', 'prod'))
-  jobs:
+- ${{ if eq(parameters.ENVIRONMENT, 'prod') }}:
   - template: utils/templates/stages/stage-approve-and-prepare-release.yml@devops
     parameters:
       STAGE_DEPENDENCY: [ PublishTerraform ]
