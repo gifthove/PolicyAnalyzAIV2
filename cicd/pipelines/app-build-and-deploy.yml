@@ -1,53 +1,48 @@
-trigger: none
+trigger:
+  branches:
+    include:
+    - main
 
-parameters:
-- name: ENVIRONMENT
-  displayName: Environment
-  type: string
-  default: dev
-  values:
-  - dev
-  - prod
-- name: TAG
-  displayName: Image Tag (leave blank to use Build.BuildNumber)
-  type: string
-  default: ""
+pr:
+  branches:
+    include:
+    - main
+
+resources:
+  repositories:
+  - repository: devops
+    type: git
+    name: Automation/devops-templates
 
 variables:
 - name: IMAGE_NAME
   value: policyanalyzai/api
 - name: IMAGE_TAG
-  ${{ if ne(parameters.TAG, '') }}:
-    value: ${{ parameters.TAG }}
-  ${{ else }}:
-    value: "$(Build.BuildNumber)"
-- name: ACR_NAME
-  ${{ if eq(parameters.ENVIRONMENT, 'prod') }}:
-    value: polanalyaiprodacr
-  ${{ else }}:
-    value: polanalyaidevacr
-- name: APP_SERVICE_NAME
-  ${{ if eq(parameters.ENVIRONMENT, 'prod') }}:
-    value: polanalyai-infra-prod-api
-  ${{ else }}:
-    value: polanalyai-infra-dev-api
-- name: RESOURCE_GROUP
-  ${{ if eq(parameters.ENVIRONMENT, 'prod') }}:
-    value: polanalyai-infra-prod-rg
-  ${{ else }}:
-    value: polanalyai-infra-dev-rg
+  value: "$(Build.BuildNumber)"
+- name: DEV_ACR_NAME
+  value: polanalyaidevacr
+- name: PROD_ACR_NAME
+  value: polanalyaiprodacr
+- name: DEV_APP_SERVICE_NAME
+  value: polanalyai-infra-dev-api
+- name: PROD_APP_SERVICE_NAME
+  value: polanalyai-infra-prod-api
+- name: DEV_RESOURCE_GROUP
+  value: polanalyai-infra-dev-rg
+- name: PROD_RESOURCE_GROUP
+  value: polanalyai-infra-prod-rg
 - group: PolicyAnalyzAIInfra
 
 pool:
   vmImage: "ubuntu-latest"
 
 stages:
-# ── Stage 1: Build & Test ──────────────────────────────────────────────────
+# ── Stage 1: Build & Test (PR + main) ─────────────────────────────────────
 - stage: BuildAndTest
   displayName: Build & Test
   jobs:
-  - job: RunTests
-    displayName: Run Python Tests
+  - job: BuildAndTest
+    displayName: Build & Test
     steps:
     - task: UsePythonVersion@0
       displayName: Use Python 3.12
@@ -67,47 +62,86 @@ stages:
         testResultsFiles: "$(Build.ArtifactStagingDirectory)/test-results.xml"
         failTaskOnFailedTests: true
 
-# ── Stage 2: Build & push Docker image ────────────────────────────────────
-- stage: BuildAndPush
-  displayName: Build & Push Image
+# ── Stage 2: Publish to Docker (main only) ────────────────────────────────
+- stage: PublishToDocker
+  displayName: Publish to Docker
   dependsOn: BuildAndTest
-  condition: succeeded()
+  condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
   jobs:
-  - job: BuildAndPushImage
-    displayName: Build & push to $(ACR_NAME)
+  - job: PushImage
+    displayName: Build & push to $(DEV_ACR_NAME)
     steps:
     - task: AzureCLI@2
-      displayName: Docker build & push → $(ACR_NAME)
+      displayName: Docker build & push → $(DEV_ACR_NAME)
       inputs:
         azureSubscription: $(AZURE_SUBSCRIPTION)
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
-          az acr login --name $(ACR_NAME)
-          docker build -t $(ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG) .
-          docker push $(ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG)
+          az acr login --name $(DEV_ACR_NAME)
+          docker build -t $(DEV_ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG) .
+          docker push $(DEV_ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG)
 
-# ── Stage 3: Deploy container to App Service ──────────────────────────────
-- stage: DeployApp
-  displayName: Deploy to ${{ parameters.ENVIRONMENT }} App Service
-  dependsOn: BuildAndPush
-  condition: succeeded()
+# ── Stage 3: Deploy to Dev/CI (main only) ─────────────────────────────────
+- stage: DeployToDev
+  displayName: Deploy to Dev
+  dependsOn: PublishToDocker
+  condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
   jobs:
-  - job: UpdateAppService
-    displayName: Update App Service container
+  - job: UpdateDevAppService
+    displayName: Update Dev App Service
     steps:
     - task: AzureCLI@2
-      displayName: Point $(APP_SERVICE_NAME) → $(IMAGE_NAME):$(IMAGE_TAG)
+      displayName: Point $(DEV_APP_SERVICE_NAME) → $(IMAGE_NAME):$(IMAGE_TAG)
       inputs:
         azureSubscription: $(AZURE_SUBSCRIPTION)
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
           az webapp config container set \
-            --name $(APP_SERVICE_NAME) \
-            --resource-group $(RESOURCE_GROUP) \
-            --container-image-name $(ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG)
+            --name $(DEV_APP_SERVICE_NAME) \
+            --resource-group $(DEV_RESOURCE_GROUP) \
+            --container-image-name $(DEV_ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG)
 
           az webapp restart \
-            --name $(APP_SERVICE_NAME) \
-            --resource-group $(RESOURCE_GROUP)
+            --name $(DEV_APP_SERVICE_NAME) \
+            --resource-group $(DEV_RESOURCE_GROUP)
+
+# ── Stage 4: Approval gate for Prod ───────────────────────────────────────
+- template: utils/templates/stages/stage-approve-and-prepare-release.yml@devops
+  parameters:
+    STAGE_DEPENDENCY: [ DeployToDev ]
+    STAGE_DISPLAY_NAME: "Approve Prod"
+    TESTERS_EMAILS: $(TESTERS_EMAILS)
+    STAGE_NAME: "ApproveProd"
+
+# ── Stage 5: Deploy to Prod (main only) ───────────────────────────────────
+- stage: DeployToProd
+  displayName: Deploy to Prod
+  dependsOn: ApproveProd
+  condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+  jobs:
+  - job: DeployProd
+    displayName: Promote image & deploy to Prod
+    steps:
+    - task: AzureCLI@2
+      displayName: Import image into $(PROD_ACR_NAME) & deploy
+      inputs:
+        azureSubscription: $(AZURE_SUBSCRIPTION)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          az acr import \
+            --name $(PROD_ACR_NAME) \
+            --source $(DEV_ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG) \
+            --image $(IMAGE_NAME):$(IMAGE_TAG) \
+            --force
+
+          az webapp config container set \
+            --name $(PROD_APP_SERVICE_NAME) \
+            --resource-group $(PROD_RESOURCE_GROUP) \
+            --container-image-name $(PROD_ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG)
+
+          az webapp restart \
+            --name $(PROD_APP_SERVICE_NAME) \
+            --resource-group $(PROD_RESOURCE_GROUP)
