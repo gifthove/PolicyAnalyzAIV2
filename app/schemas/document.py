@@ -15,4 +15,5 @@ class DocumentUploadResponse(BaseModel):
     blob_path: str
     word_count: int
     char_count: int
+    chunk_count: int = 0
     status: str = "uploaded"

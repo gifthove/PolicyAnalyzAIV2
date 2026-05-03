@@ -10,7 +10,10 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from app.config import AZURE_BLOB_CONTAINER
 from app.schemas.document import DocumentUploadResponse
 from app.services.blob_service import upload_blob
+from app.services.chunking_service import chunk_text
 from app.services.document_service import SUPPORTED_TYPES, extract_text
+from app.services.embedding_service import get_embeddings
+from app.services.search_service import IndexedChunk, index_chunks
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +64,35 @@ async def upload_document(
         logger.error("Blob upload failed: document_id=%s blob_path=%s error=%s", document_id, blob_path, exc)
         raise HTTPException(status_code=500, detail=f"Failed to upload to blob storage: {exc}")
 
-    logger.info("Document uploaded: document_id=%s words=%d chars=%d", document_id, word_count, char_count)
+    chunks = chunk_text(text)
+    chunk_count = 0
+
+    if chunks:
+        try:
+            embeddings = await asyncio.to_thread(get_embeddings, [c.text for c in chunks])
+            now_iso = datetime.now(tz=timezone.utc).isoformat()
+            indexed = [
+                IndexedChunk(
+                    id=f"{document_id}_{c.chunk_index}",
+                    document_id=document_id,
+                    source_name=source_name,
+                    policy_date=str(policy_date) if policy_date else None,
+                    chunk_index=c.chunk_index,
+                    chunk_text=c.text,
+                    embedding=embeddings[c.chunk_index],
+                    created_at=now_iso,
+                )
+                for c in chunks
+            ]
+            chunk_count = await asyncio.to_thread(index_chunks, indexed)
+        except Exception as exc:
+            logger.error("Indexing failed: document_id=%s error=%s", document_id, exc)
+            raise HTTPException(status_code=500, detail=f"Failed to index document chunks: {exc}")
+
+    logger.info(
+        "Document uploaded: document_id=%s words=%d chars=%d chunks=%d",
+        document_id, word_count, char_count, chunk_count,
+    )
 
     return DocumentUploadResponse(
         document_id=document_id,
@@ -74,4 +105,5 @@ async def upload_document(
         blob_path=blob_path,
         word_count=word_count,
         char_count=char_count,
+        chunk_count=chunk_count,
     )

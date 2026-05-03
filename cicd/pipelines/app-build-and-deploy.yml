@@ -23,9 +23,9 @@ variables:
   value: polanalyaidevacr
 - name: PROD_ACR_NAME
   value: polanalyaiprodacr
-- name: DEV_APP_SERVICE_NAME
+- name: DEV_CONTAINER_APP_NAME
   value: polanalyai-infra-dev-api
-- name: PROD_APP_SERVICE_NAME
+- name: PROD_CONTAINER_APP_NAME
   value: polanalyai-infra-prod-api
 - name: DEV_RESOURCE_GROUP
   value: polanalyai-infra-dev-rg
@@ -88,24 +88,21 @@ stages:
   dependsOn: PublishToDocker
   condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
   jobs:
-  - job: UpdateDevAppService
-    displayName: Update Dev App Service
+  - job: UpdateDevContainerApp
+    displayName: Update Dev Container App
     steps:
     - task: AzureCLI@2
-      displayName: Point $(DEV_APP_SERVICE_NAME) → $(IMAGE_NAME):$(IMAGE_TAG)
+      displayName: Point $(DEV_CONTAINER_APP_NAME) → $(IMAGE_NAME):$(IMAGE_TAG)
       inputs:
         azureSubscription: $(AZURE_SUBSCRIPTION)
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
-          az webapp config container set \
-            --name $(DEV_APP_SERVICE_NAME) \
+          az containerapp update \
+            --name $(DEV_CONTAINER_APP_NAME) \
             --resource-group $(DEV_RESOURCE_GROUP) \
-            --container-image-name $(DEV_ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG)
-
-          az webapp restart \
-            --name $(DEV_APP_SERVICE_NAME) \
-            --resource-group $(DEV_RESOURCE_GROUP)
+            --image $(DEV_ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG) \
+            --container-name api
 
 # ── Stage 4: Approval gate for Prod ───────────────────────────────────────
 - template: utils/templates/stages/stage-approve-and-prepare-release.yml@devops
@@ -137,11 +134,8 @@ stages:
             --image $(IMAGE_NAME):$(IMAGE_TAG) \
             --force
 
-          az webapp config container set \
-            --name $(PROD_APP_SERVICE_NAME) \
+          az containerapp update \
+            --name $(PROD_CONTAINER_APP_NAME) \
             --resource-group $(PROD_RESOURCE_GROUP) \
-            --container-image-name $(PROD_ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG)
-
-          az webapp restart \
-            --name $(PROD_APP_SERVICE_NAME) \
-            --resource-group $(PROD_RESOURCE_GROUP)
+            --image $(PROD_ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG) \
+            --container-name api
