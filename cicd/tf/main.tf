@@ -68,6 +68,11 @@ module "acr" {
   resource_group_name = module.resourcegroup.resource_group_name
 }
 
+import {
+  to = module.containerapp.azurerm_container_app.app
+  id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${local.resource_group_name}/providers/Microsoft.App/containerApps/${local.app_name}"
+}
+
 module "containerapp" {
   source                        = "./modules/containerapp"
   env_name                      = local.container_app_env_name
