@@ -68,28 +68,33 @@ module "acr" {
   resource_group_name = module.resourcegroup.resource_group_name
 }
 
-module "appservice" {
-  source              = "./modules/appservice"
-  plan_name           = local.app_plan_name
-  app_name            = local.app_name
-  location            = local.location
-  resource_group_name = module.resourcegroup.resource_group_name
-  docker_image        = "${module.acr.login_server}/${var.docker_image_name}"
-  acr_login_server    = module.acr.login_server
-  acr_username        = module.acr.admin_username
-  acr_password        = module.acr.admin_password
-  app_settings = {
-    "AZURE_OPENAI_ENDPOINT"                    = module.openai.endpoint
-    "AZURE_OPENAI_EMBEDDING_DEPLOYMENT"        = "text-embedding-ada-002"
-    "AZURE_OPENAI_CHAT_DEPLOYMENT"             = "gpt-4.1"
-    "AZURE_SEARCH_ENDPOINT"                    = module.aisearch.endpoint
-    "AZURE_BLOB_CONNECTION_STRING"             = module.storage.primary_connection_string
-    "AZURE_BLOB_CONTAINER"                     = "documents"
-    "AZURE_STORAGE_ACCOUNT_NAME"               = module.storage.account_name
-    "APPLICATIONINSIGHTS_CONNECTION_STRING"    = module.appinsights.connection_string
-    "KEY_VAULT_URI"                            = module.keyvault.key_vault_uri
-    "ENVIRONMENT"                              = var.environment
-    "WEBSITE_ENABLE_SYNC_UPDATE_SITE"          = "true"
+module "containerapp" {
+  source                        = "./modules/containerapp"
+  env_name                      = local.container_app_env_name
+  app_name                      = local.app_name
+  location                      = local.location
+  resource_group_name           = module.resourcegroup.resource_group_name
+  log_analytics_workspace_id    = module.appinsights.workspace_id
+  acr_login_server              = module.acr.login_server
+  acr_username                  = module.acr.admin_username
+  acr_password                  = module.acr.admin_password
+  docker_image_name             = var.docker_image_name
+  openai_key                    = module.openai.primary_key
+  search_key                    = module.aisearch.primary_key
+  blob_connection_string        = module.storage.primary_connection_string
+  appinsights_connection_string = module.appinsights.connection_string
+  env_vars = {
+    "AZURE_OPENAI_ENDPOINT"             = module.openai.endpoint
+    "AZURE_OPENAI_EMBEDDING_DEPLOYMENT" = "text-embedding-ada-002"
+    "AZURE_OPENAI_CHAT_DEPLOYMENT"      = "gpt-4.1"
+    "AZURE_OPENAI_API_VERSION"          = "2024-02-01"
+    "AZURE_OPENAI_EMBEDDING_DIMENSIONS" = "1536"
+    "AZURE_SEARCH_ENDPOINT"             = module.aisearch.endpoint
+    "AZURE_SEARCH_INDEX_NAME"           = "policy-documents"
+    "AZURE_BLOB_CONTAINER"              = "documents"
+    "AZURE_STORAGE_ACCOUNT_NAME"        = module.storage.account_name
+    "KEY_VAULT_URI"                     = module.keyvault.key_vault_uri
+    "ENVIRONMENT"                       = var.environment
   }
 }
 
@@ -110,11 +115,11 @@ module "keyvault" {
   }
 }
 
-# Web app managed identity — read secrets at runtime
+# Container app managed identity — read secrets at runtime
 resource "azurerm_key_vault_access_policy" "webapp" {
   key_vault_id = module.keyvault.key_vault_id
   tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = module.appservice.principal_id
+  object_id    = module.containerapp.principal_id
 
   secret_permissions = ["Get", "List"]
 }

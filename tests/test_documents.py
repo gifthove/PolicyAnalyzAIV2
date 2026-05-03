@@ -9,6 +9,20 @@ from app.main import app
 
 client = TestClient(app)
 
+# Prevent real Azure calls for every test in this module
+_patch_embeddings = patch("app.routes.documents.get_embeddings", return_value=[[0.1] * 3])
+_patch_index = patch("app.routes.documents.index_chunks", return_value=1)
+
+
+def setup_module(_):
+    _patch_embeddings.start()
+    _patch_index.start()
+
+
+def teardown_module(_):
+    _patch_embeddings.stop()
+    _patch_index.stop()
+
 FAKE_BLOB_URL = "https://fake.blob.core.windows.net/documents/test-id/file.txt"
 
 

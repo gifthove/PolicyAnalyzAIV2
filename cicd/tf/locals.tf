@@ -8,9 +8,9 @@ locals {
   openai_name          = "${local.service_prefix}-${var.environment}-oai"
   search_name          = "${local.service_prefix}-${var.environment}-search"
   storage_name         = "polanalyai${var.environment}sa"                  # alphanumeric only, max 24 chars
-  acr_name             = "polanalyai${var.environment}acr"                 # alphanumeric only
-  app_plan_name        = "${local.service_prefix}-${var.environment}-asp"
-  app_name             = "${local.service_prefix}-${var.environment}-api"
+  acr_name                 = "polanalyai${var.environment}acr"             # alphanumeric only
+  container_app_env_name   = "${local.service_prefix}-${var.environment}-cae"
+  app_name                 = "${local.service_prefix}-${var.environment}-api"
   appinsights_name     = "${local.service_prefix}-${var.environment}-ai"
   log_analytics_name   = "${local.service_prefix}-${var.environment}-la"
   common_tags = {
