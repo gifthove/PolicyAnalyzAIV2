@@ -78,7 +78,6 @@ module "containerapp" {
   acr_login_server              = module.acr.login_server
   acr_username                  = module.acr.admin_username
   acr_password                  = module.acr.admin_password
-  docker_image_name             = var.docker_image_name
   openai_key                    = module.openai.primary_key
   search_key                    = module.aisearch.primary_key
   blob_connection_string        = module.storage.primary_connection_string

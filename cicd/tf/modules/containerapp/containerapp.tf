@@ -52,7 +52,7 @@ resource "azurerm_container_app" "app" {
 
     container {
       name   = "api"
-      image  = "${var.acr_login_server}/${var.docker_image_name}"
+      image  = var.docker_image_name != "" ? "${var.acr_login_server}/${var.docker_image_name}" : "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
       cpu    = 0.5
       memory = "1Gi"
 

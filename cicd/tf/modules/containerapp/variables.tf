@@ -38,7 +38,8 @@ variable "acr_password" {
 
 variable "docker_image_name" {
   type        = string
-  description = "Image name and tag without registry prefix (e.g. policyanalyzai/api:latest)"
+  description = "Image name and tag without registry prefix (e.g. policyanalyzai/api:latest). Empty string uses a public placeholder — CI/CD pipeline owns the live image update."
+  default     = ""
 }
 
 variable "openai_key" {
