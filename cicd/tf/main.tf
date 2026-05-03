@@ -26,6 +26,10 @@ provider "azurerm" {
 
 data "azurerm_client_config" "current" {}
 
+resource "azurerm_resource_provider_registration" "microsoft_app" {
+  name = "Microsoft.App"
+}
+
 module "resourcegroup" {
   source   = "./modules/resourcegroup"
   name     = local.resource_group_name
@@ -70,6 +74,7 @@ module "acr" {
 
 module "containerapp" {
   source                        = "./modules/containerapp"
+  depends_on                    = [azurerm_resource_provider_registration.microsoft_app]
   env_name                      = local.container_app_env_name
   app_name                      = local.app_name
   location                      = local.location
