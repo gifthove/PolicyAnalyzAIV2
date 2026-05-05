@@ -3,7 +3,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.services.search_service import IndexedChunk, delete_document, ensure_index_exists, index_chunks
+from app.services.search_service import (
+    IndexedChunk,
+    delete_document,
+    ensure_index_exists,
+    index_chunks,
+    retrieve_chunks,
+)
 
 
 def _make_chunk(doc_id: str = "doc-1", idx: int = 0) -> IndexedChunk:
@@ -104,3 +110,36 @@ def test_delete_document_no_chunks_skips_delete(mock_client_fn):
     delete_document("doc-999")
 
     mock_client.delete_documents.assert_not_called()
+
+
+@patch("app.services.search_service._search_client")
+def test_retrieve_chunks_uses_vector_query(mock_client_fn):
+    mock_client = MagicMock()
+    mock_client_fn.return_value = mock_client
+    mock_client.search.return_value = [
+        {
+            "id": "doc-1_0",
+            "document_id": "doc-1",
+            "source_name": "Policy A",
+            "policy_date": "2024-01-15",
+            "chunk_index": 0,
+            "chunk_text": "Relevant policy text.",
+            "@search.score": 0.91,
+        }
+    ]
+
+    chunks = retrieve_chunks([0.1, 0.2, 0.3], top_k=3)
+
+    assert len(chunks) == 1
+    assert chunks[0].id == "doc-1_0"
+    assert chunks[0].score == 0.91
+    _, kwargs = mock_client.search.call_args
+    assert kwargs["top"] == 3
+    assert kwargs["vector_queries"][0].as_dict()["fields"] == "embedding"
+    assert kwargs["vector_queries"][0].as_dict()["k"] == 3
+
+
+@patch("app.services.search_service._search_client")
+def test_retrieve_chunks_empty_embedding_returns_empty(mock_client_fn):
+    assert retrieve_chunks([]) == []
+    mock_client_fn.assert_not_called()
