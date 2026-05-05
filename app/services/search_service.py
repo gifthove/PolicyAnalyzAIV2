@@ -5,6 +5,7 @@ from typing import Optional
 
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient
+from azure.search.documents.models import VectorizedQuery
 from azure.search.documents.indexes import SearchIndexClient
 from azure.search.documents.indexes.models import (
     HnswAlgorithmConfiguration,
@@ -32,6 +33,17 @@ class IndexedChunk:
     chunk_text: str
     embedding: list[float]
     created_at: str
+
+
+@dataclass
+class RetrievedChunk:
+    id: str
+    document_id: str
+    source_name: Optional[str]
+    policy_date: Optional[str]
+    chunk_index: int
+    chunk_text: str
+    score: Optional[float] = None
 
 
 def _index_client() -> SearchIndexClient:
@@ -106,3 +118,45 @@ def delete_document(document_id: str) -> None:
     if to_delete:
         client.delete_documents(documents=to_delete)
         logger.info("Deleted %d chunks for document_id=%s", len(to_delete), document_id)
+
+
+def retrieve_chunks(question_embedding: list[float], top_k: int = 5) -> list[RetrievedChunk]:
+    """Return the most relevant indexed chunks for a question embedding."""
+    if not question_embedding:
+        return []
+
+    vector_query = VectorizedQuery(
+        vector=question_embedding,
+        k_nearest_neighbors=top_k,
+        fields="embedding",
+    )
+    results = _search_client().search(
+        search_text=None,
+        vector_queries=[vector_query],
+        select=[
+            "id",
+            "document_id",
+            "source_name",
+            "policy_date",
+            "chunk_index",
+            "chunk_text",
+        ],
+        top=top_k,
+    )
+
+    chunks: list[RetrievedChunk] = []
+    for result in results:
+        chunks.append(
+            RetrievedChunk(
+                id=result["id"],
+                document_id=result["document_id"],
+                source_name=result.get("source_name"),
+                policy_date=result.get("policy_date"),
+                chunk_index=result["chunk_index"],
+                chunk_text=result["chunk_text"],
+                score=result.get("@search.score"),
+            )
+        )
+
+    logger.info("Retrieved %d chunks for query", len(chunks))
+    return chunks

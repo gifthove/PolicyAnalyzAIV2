@@ -7,18 +7,20 @@ import tiktoken
 _ENCODING_NAME = "cl100k_base"
 _encoder: tiktoken.Encoding | None = None
 
-
+# This service provides utilities for splitting text into chunks based on token counts, with support for overlapping tokens between chunks. 
+# It uses the tiktoken library to handle tokenization according to the specified encoding.    
 def _get_encoder() -> tiktoken.Encoding:
     global _encoder
     if _encoder is None:
         _encoder = tiktoken.get_encoding(_ENCODING_NAME)
     return _encoder
 
-
+# Helper function to count the number of tokens in a given text using the specified encoding.
 def _token_count(text: str) -> int:
     return len(_get_encoder().encode(text))
 
-
+# This function splits a given text into chunks based on a specified token limit and overlap. 
+# It first encodes the text into tokens, then creates chunks of the specified size while ensuring that there is an overlap of tokens between consecutive chunks.
 def _split_by_tokens(text: str, chunk_size: int, overlap: int) -> list[str]:
     enc = _get_encoder()
     tokens = enc.encode(text)
@@ -32,7 +34,8 @@ def _split_by_tokens(text: str, chunk_size: int, overlap: int) -> list[str]:
         start = end - overlap
     return results
 
-
+# This function takes a list of text parts and an overlap token count, 
+# and returns a list of parts that together do not exceed the specified overlap token count.
 def _trailing_overlap(parts: list[str], overlap_tokens: int) -> list[str]:
     result: list[str] = []
     total = 0
@@ -45,14 +48,15 @@ def _trailing_overlap(parts: list[str], overlap_tokens: int) -> list[str]:
             break
     return result
 
-
+# This dataclass represents a chunk of text, including its index, the text itself, and the token count.
 @dataclass
 class Chunk:
     chunk_index: int
     text: str
     token_count: int
 
-
+# This function takes a large text input and splits it into smaller chunks based on paragraph boundaries 
+# and a specified token ceiling.
 def chunk_text(text: str, chunk_size: int = 600, overlap: int = 100) -> list[Chunk]:
     """Split text into overlapping chunks using paragraph boundaries and a token ceiling."""
     paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
