@@ -2,11 +2,21 @@ trigger:
   branches:
     include:
     - main
+  paths:
+    include:
+    - api
+    - api/**
+    - cicd/pipelines/api-build-and-deploy.yml
 
 pr:
   branches:
     include:
     - main
+  paths:
+    include:
+    - api
+    - api/**
+    - cicd/pipelines/api-build-and-deploy.yml
 
 resources:
   repositories:
@@ -50,6 +60,8 @@ stages:
         versionSpec: "3.12"
 
     - script: |
+        set -euo pipefail
+        cd api
         pip install --no-cache-dir -r requirements.txt
         pytest --junitxml=$(Build.ArtifactStagingDirectory)/test-results.xml -v
       displayName: Install dependencies & run tests
@@ -79,7 +91,7 @@ stages:
         scriptLocation: inlineScript
         inlineScript: |
           az acr login --name $(DEV_ACR_NAME)
-          docker build -t $(DEV_ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG) .
+          docker build -t $(DEV_ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG) api
           docker push $(DEV_ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG)
 
 # ── Stage 3: Deploy to Dev/CI (main only) ─────────────────────────────────
