@@ -3,7 +3,12 @@
     "allow": [
       "Bash(git rebase *)",
       "Bash(gh pr create --title 'Fix CI: add pytest.ini so app module resolves in tests' --body ' *)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(git mv *)",
+      "Bash(../.venv/Scripts/python.exe -m pytest --collect-only -q)",
+      "Bash(../.venv/Scripts/python.exe -m pytest -q)",
+      "Bash(rm -rf .cv_unpacked .pytest_cache)",
+      "Read(//c/c/Development/**)"
     ]
   }
 }

@@ -24,23 +24,28 @@ AI-powered policy analysis platform built on Azure, deployed via Azure DevOps pi
 
 ```
 .
-├── app/                             # FastAPI application
-│   ├── main.py
-│   ├── config.py
-│   ├── routes/
-│   └── services/
-├── tests/                           # pytest test suite
-│   └── test_health.py
-├── Dockerfile                       # Container image definition
-├── pytest.ini                       # pytest config (sets pythonpath = .)
-├── requirements.txt
+├── api/                             # FastAPI backend
+│   ├── app/                         # Python package
+│   │   ├── main.py
+│   │   ├── config.py
+│   │   ├── routes/
+│   │   ├── services/
+│   │   └── schemas/
+│   ├── tests/                       # pytest test suite
+│   ├── Dockerfile                   # Container image definition
+│   ├── pytest.ini                   # pytest config (pythonpath = . relative to api/)
+│   ├── requirements.txt
+│   └── .env.example
+├── ui/                              # React SPA frontend (not yet scaffolded)
 ├── .claude/
 │   ├── commands/
 │   │   └── branch-commit-skill.md   # /branch-commit-skill slash command
 │   └── settings.local.json          # Claude Code git permissions
 ├── cicd/
 │   ├── pipelines/
-│   │   └── app-build-and-deploy.yml # App CI/CD pipeline (build, push, deploy)
+│   │   ├── api-build-and-deploy.yml   # API CI/CD pipeline (build, push, deploy)
+│   │   ├── infra-build-and-deploy.yml # Infra (Terraform) deploy pipeline
+│   │   └── destroy-infra.yml          # Infra teardown (manual, gated)
 │   └── tf/                          # Terraform root module
 │       ├── main.tf
 │       ├── locals.tf
@@ -49,7 +54,7 @@ AI-powered policy analysis platform built on Azure, deployed via Azure DevOps pi
 │           ├── acr/
 │           ├── aisearch/
 │           ├── appinsights/
-│           ├── appservice/
+│           ├── containerapp/
 │           ├── keyvault/
 │           ├── openai/
 │           ├── resourcegroup/
@@ -99,7 +104,7 @@ The pipeline reads the following variables from the Azure DevOps Library group `
 
 ---
 
-## Pipeline — `app-build-and-deploy.yml`
+## Pipeline — `api-build-and-deploy.yml`
 
 Manually triggered pipeline that builds, pushes, and deploys the containerised FastAPI app.
 
