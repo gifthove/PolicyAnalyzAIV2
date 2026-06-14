@@ -5,6 +5,7 @@ trigger:
   paths:
     include:
     - api
+    - api/**
     - cicd/pipelines/api-build-and-deploy.yml
 
 pr:
@@ -14,6 +15,7 @@ pr:
   paths:
     include:
     - api
+    - api/**
     - cicd/pipelines/api-build-and-deploy.yml
 
 resources:
