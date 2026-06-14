@@ -2,7 +2,9 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import CORS_ALLOWED_ORIGINS
 from app.routes.documents import router as documents_router
 from app.routes.health import router as health_router
 from app.routes.query import router as query_router
@@ -22,6 +24,12 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="PolicyAnalyzAI v2", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ALLOWED_ORIGINS,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(health_router)
 app.include_router(user_router, prefix="/users", tags=["users"])
 app.include_router(documents_router)

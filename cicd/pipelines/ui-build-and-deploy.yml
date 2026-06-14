@@ -1,0 +1,166 @@
+trigger:
+  branches:
+    include:
+    - main
+  paths:
+    include:
+    - ui
+    - ui/**
+    - cicd/pipelines/ui-build-and-deploy.yml
+
+pr:
+  branches:
+    include:
+    - main
+  paths:
+    include:
+    - ui
+    - ui/**
+    - cicd/pipelines/ui-build-and-deploy.yml
+
+resources:
+  repositories:
+  - repository: devops
+    type: git
+    name: Automation/devops-templates
+
+variables:
+- name: IMAGE_NAME
+  value: policyanalyzai/ui
+- name: IMAGE_TAG
+  value: "$(Build.BuildNumber)"
+- name: DEV_ACR_NAME
+  value: polanalyaidevacr
+- name: PROD_ACR_NAME
+  value: polanalyaiprodacr
+- name: DEV_CONTAINER_APP_NAME
+  value: polanalyai-infra-dev-ui
+- name: PROD_CONTAINER_APP_NAME
+  value: polanalyai-infra-prod-ui
+- name: DEV_API_CONTAINER_APP_NAME
+  value: polanalyai-infra-dev-api
+- name: PROD_API_CONTAINER_APP_NAME
+  value: polanalyai-infra-prod-api
+- name: DEV_RESOURCE_GROUP
+  value: polanalyai-infra-dev-rg
+- name: PROD_RESOURCE_GROUP
+  value: polanalyai-infra-prod-rg
+- group: PolicyAnalyzAIInfra
+
+pool:
+  vmImage: "ubuntu-latest"
+
+stages:
+# ── Stage 1: Build & Test (PR + main) ─────────────────────────────────────
+- stage: BuildAndTest
+  displayName: Build & Test
+  jobs:
+  - job: BuildAndTest
+    displayName: Build & Test
+    steps:
+    - task: NodeTool@0
+      displayName: Use Node.js 20.x
+      inputs:
+        versionSpec: "20.x"
+
+    - script: |
+        set -euo pipefail
+        cd ui
+        npm ci
+        npm run check
+        npm run test
+      displayName: Install dependencies, type-check & run tests
+
+# ── Stage 2: Publish to Docker (main only) ────────────────────────────────
+# The UI bakes API_BASE_URL into the bundle at build time, so it is built
+# once per environment with that environment's API Container App URL.
+- stage: PublishToDocker
+  displayName: Publish to Docker
+  dependsOn: BuildAndTest
+  condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+  jobs:
+  - job: PushImage
+    displayName: Build & push to $(DEV_ACR_NAME)
+    steps:
+    - task: AzureCLI@2
+      displayName: Docker build & push → $(DEV_ACR_NAME)
+      inputs:
+        azureSubscription: $(AZURE_SUBSCRIPTION)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          API_FQDN=$(az containerapp show \
+            --name $(DEV_API_CONTAINER_APP_NAME) \
+            --resource-group $(DEV_RESOURCE_GROUP) \
+            --query properties.configuration.ingress.fqdn -o tsv)
+
+          az acr login --name $(DEV_ACR_NAME)
+          docker build \
+            --build-arg API_BASE_URL=https://$API_FQDN \
+            -t $(DEV_ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG) ui
+          docker push $(DEV_ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG)
+
+# ── Stage 3: Deploy to Dev/CI (main only) ─────────────────────────────────
+- stage: DeployToDev
+  displayName: Deploy to Dev
+  dependsOn: PublishToDocker
+  condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+  jobs:
+  - job: UpdateDevContainerApp
+    displayName: Update Dev Container App
+    steps:
+    - task: AzureCLI@2
+      displayName: Point $(DEV_CONTAINER_APP_NAME) → $(IMAGE_NAME):$(IMAGE_TAG)
+      inputs:
+        azureSubscription: $(AZURE_SUBSCRIPTION)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          az containerapp update \
+            --name $(DEV_CONTAINER_APP_NAME) \
+            --resource-group $(DEV_RESOURCE_GROUP) \
+            --image $(DEV_ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG) \
+            --container-name ui
+
+# ── Stage 4: Approval gate for Prod ───────────────────────────────────────
+- template: utils/templates/stages/stage-approve-and-prepare-release.yml@devops
+  parameters:
+    STAGE_DEPENDENCY: [ DeployToDev ]
+    STAGE_DISPLAY_NAME: "Approve Prod"
+    TESTERS_EMAILS: $(TESTERS_EMAILS)
+    STAGE_NAME: "ApproveProd"
+
+# ── Stage 5: Deploy to Prod (main only) ───────────────────────────────────
+# Rebuilt (not promoted) so the bundle is pointed at the prod API instead of
+# dev — same source + tag as the dev image, different baked-in API_BASE_URL.
+- stage: DeployToProd
+  displayName: Deploy to Prod
+  dependsOn: ApproveProd
+  condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+  jobs:
+  - job: DeployProd
+    displayName: Build for prod config & deploy
+    steps:
+    - task: AzureCLI@2
+      displayName: Docker build & push → $(PROD_ACR_NAME), then deploy
+      inputs:
+        azureSubscription: $(AZURE_SUBSCRIPTION)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          API_FQDN=$(az containerapp show \
+            --name $(PROD_API_CONTAINER_APP_NAME) \
+            --resource-group $(PROD_RESOURCE_GROUP) \
+            --query properties.configuration.ingress.fqdn -o tsv)
+
+          az acr login --name $(PROD_ACR_NAME)
+          docker build \
+            --build-arg API_BASE_URL=https://$API_FQDN \
+            -t $(PROD_ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG) ui
+          docker push $(PROD_ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG)
+
+          az containerapp update \
+            --name $(PROD_CONTAINER_APP_NAME) \
+            --resource-group $(PROD_RESOURCE_GROUP) \
+            --image $(PROD_ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG) \
+            --container-name ui

@@ -1,0 +1,21 @@
+.badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  text-transform: capitalize;
+}
+
+.checking {
+  background: #e0e0e0;
+  color: #424242;
+}
+
+.online {
+  background: #d4edda;
+  color: #155724;
+}
+
+.offline {
+  background: #f8d7da;
+  color: #721c24;
+}
