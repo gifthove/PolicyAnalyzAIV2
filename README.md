@@ -20,6 +20,46 @@ AI-powered policy analysis platform built on Azure, deployed via Azure DevOps pi
 
 ---
 
+## Local Development
+
+### Prerequisites
+- Python 3.12
+- Node.js 20+ (for the UI)
+
+### 1. API
+
+```bash
+cd api
+python -m venv ../.venv
+../.venv/Scripts/pip install -r requirements.txt
+cp .env.example .env   # fill in Azure OpenAI/Search/Storage values
+../.venv/Scripts/uvicorn app.main:app --reload --port 8000
+```
+
+- Health check: `http://localhost:8000/health`
+- Swagger UI: `http://localhost:8000/docs`
+
+### 2. UI
+
+In a separate terminal:
+
+```bash
+cd ui
+npm install
+cp .env.example .env   # API_BASE_URL defaults to http://localhost:8000
+npm start
+```
+
+Parcel prints the dev server URL (typically `http://localhost:1234`).
+
+### Run Both
+
+The `/run-local` Claude Code command (see [Claude Code Slash
+Commands](#claude-code-slash-commands)) starts both dev servers in the
+background in one step.
+
+---
+
 ## Repository Structure
 
 ```
@@ -36,7 +76,16 @@ AI-powered policy analysis platform built on Azure, deployed via Azure DevOps pi
 │   ├── pytest.ini                   # pytest config (pythonpath = . relative to api/)
 │   ├── requirements.txt
 │   └── .env.example
-├── ui/                              # React SPA frontend (not yet scaffolded)
+├── ui/                              # React SPA frontend
+│   ├── src/
+│   │   ├── app/                     # Redux store + typed hooks
+│   │   ├── api/                     # typed fetch client (query, documents, health)
+│   │   ├── features/                # ask, upload, status
+│   │   └── styles/
+│   ├── Dockerfile                   # Build with node, serve with nginx
+│   ├── nginx.conf
+│   ├── package.json
+│   └── .env.example
 ├── docs/
 │   └── phase1-plan.md
 ├── .claude/
@@ -47,6 +96,7 @@ AI-powered policy analysis platform built on Azure, deployed via Azure DevOps pi
 ├── cicd/
 │   ├── pipelines/
 │   │   ├── api-build-and-deploy.yml   # API CI/CD pipeline (build, push, deploy)
+│   │   ├── ui-build-and-deploy.yml    # UI CI/CD pipeline (build, push, deploy)
 │   │   ├── infra-build-and-deploy.yml # Infra (Terraform) deploy pipeline
 │   │   ├── destroy-infra.yml          # Infra teardown (manual, gated)
 │   │   └── templates/
@@ -62,7 +112,9 @@ AI-powered policy analysis platform built on Azure, deployed via Azure DevOps pi
 │           ├── acr/
 │           ├── aisearch/
 │           ├── appinsights/
-│           ├── containerapp/
+│           ├── containerapp/      # API Container App
+│           ├── containerapp-ui/   # UI Container App
+│           ├── containerappenv/   # shared Container App Environment
 │           ├── keyvault/
 │           ├── openai/
 │           ├── resourcegroup/
@@ -145,6 +197,42 @@ az containerapp show -n polanalyai-infra-dev-api -g polanalyai-infra-dev-rg \
 
 ---
 
+## Pipeline — `ui-build-and-deploy.yml`
+
+CI/CD pipeline for the React UI. Triggers automatically on pushes and PRs to `main` that touch `ui/**` or the pipeline file itself.
+
+### Stages
+
+| Stage             | Description                                                                                              | Condition            |
+|-------------------|-----------------------------------------------------------------------------------------------------------|--------------------------|
+| `BuildAndTest`    | `npm ci`, type-check (`npm run check`), unit/component tests (`npm run test`)                            | Always                   |
+| `PublishToDocker` | Looks up the dev API Container App's FQDN, `docker build` with `--build-arg API_BASE_URL=https://<dev-api-fqdn>`, pushes to `$(DEV_ACR_NAME)` | Tests pass, not a PR     |
+| `DeployToDev`     | `az containerapp update` on the dev UI Container App                                                     | After image pushed       |
+| `ApproveProd`     | Manual approval gate (emails from `TESTERS_EMAILS`)                                                       | After dev deploy         |
+| `DeployToProd`    | Rebuilds the image with `--build-arg API_BASE_URL=https://<prod-api-fqdn>`, pushes to `$(PROD_ACR_NAME)`, then `az containerapp update` | After approval |
+
+### Trigger
+- Push or PR to `main`, filtered to changes under `ui/**` or this pipeline file
+
+### Per-Environment Configuration
+
+Parcel inlines `process.env.API_BASE_URL` into the JS bundle at build time, so
+the UI image can't be promoted unchanged between environments like the API
+image is — it's built once per environment, each time pointed at that
+environment's API Container App URL. The API's `CORS_ALLOWED_ORIGINS` is set
+by Terraform to the UI Container App's FQDN for the same environment (see
+`CORS_ALLOWED_ORIGINS` in the `containerapp` module's `env_vars` in
+`cicd/tf/main.tf`).
+
+### Container App Targets
+
+| Environment | ACR                 | Container App              | Resource Group              |
+|-------------|---------------------|------------------------------|------------------------------|
+| Dev  | `polanalyaidevacr`  | `polanalyai-infra-dev-ui`  | `polanalyai-infra-dev-rg`  |
+| Prod | `polanalyaiprodacr` | `polanalyai-infra-prod-ui` | `polanalyai-infra-prod-rg` |
+
+---
+
 ## Pipeline — `infra-build-and-deploy.yml`
 
 Manually triggered pipeline that publishes `cicd/tf` as an artifact and runs `terraform apply` for dev/CI then prod via the shared `templates/job-deploy-infra.yml` job template.
@@ -202,7 +290,9 @@ All resources follow the pattern `polanalyai-infra-<env>-<suffix>`, e.g.:
 - Resource group: `polanalyai-infra-dev-rg`
 - Key Vault: `polanalyai-infra-dev-kv`
 - OpenAI: `polanalyai-infra-dev-oai`
-- Container App: `polanalyai-infra-dev-api`
+- Container App Environment (shared by API and UI): `polanalyai-infra-dev-cae`
+- API Container App: `polanalyai-infra-dev-api`
+- UI Container App: `polanalyai-infra-dev-ui`
 
 ### Key Vault Access
 
@@ -223,12 +313,16 @@ The Container App's managed identity is granted `Get`/`List` secret permissions 
 
 ## Claude Code Slash Commands
 
-| Command                | Description                                                      |
-|------------------------|------------------------------------------------------------------|
+| Command                | Description                                                       |
+|------------------------|--------------------------------------------------------------------|
 | `/branch-commit-skill` | Create a new branch, stage changes, commit, and push in one step |
+| `/run-local`           | Start the API and UI dev servers together for local development  |
+| `/build-and-test`      | Type-check, build, and run the API and UI test suites             |
 
 ### Usage
 
 ```
 /branch-commit-skill fix/my-branch "my commit message"
+/run-local
+/build-and-test
 ```

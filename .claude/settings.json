@@ -8,7 +8,19 @@
       "Bash(../.venv/Scripts/python.exe -m pytest --collect-only -q)",
       "Bash(../.venv/Scripts/python.exe -m pytest -q)",
       "Bash(rm -rf .cv_unpacked .pytest_cache)",
-      "Read(//c/c/Development/**)"
+      "Read(//c/c/Development/**)",
+      "Bash(npm -v)",
+      "PowerShell(node -v)",
+      "PowerShell(npm -v)",
+      "Bash(python -m pytest tests/test_health.py -q)",
+      "Bash(../.venv/Scripts/python.exe -m pytest tests/test_health.py -q)",
+      "Bash(npm start *)",
+      "Bash(npm install *)",
+      "Bash(terraform fmt *)",
+      "Bash(terraform validate *)",
+      "Bash(terraform init *)",
+      "Bash(npm run *)",
+      "Bash(git stash *)"
     ]
   }
 }

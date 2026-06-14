@@ -75,13 +75,19 @@ module "acr" {
   resource_group_name = module.resourcegroup.resource_group_name
 }
 
+module "containerappenv" {
+  source                     = "./modules/containerappenv"
+  env_name                   = local.container_app_env_name
+  location                   = local.location
+  resource_group_name        = module.resourcegroup.resource_group_name
+  log_analytics_workspace_id = module.appinsights.workspace_id
+}
+
 module "containerapp" {
   source                        = "./modules/containerapp"
-  env_name                      = local.container_app_env_name
+  container_app_environment_id  = module.containerappenv.id
   app_name                      = local.app_name
-  location                      = local.location
   resource_group_name           = module.resourcegroup.resource_group_name
-  log_analytics_workspace_id    = module.appinsights.workspace_id
   acr_login_server              = module.acr.login_server
   acr_username                  = module.acr.admin_username
   acr_password                  = module.acr.admin_password
@@ -101,7 +107,18 @@ module "containerapp" {
     "AZURE_STORAGE_ACCOUNT_NAME"        = module.storage.account_name
     "KEY_VAULT_URI"                     = module.keyvault.key_vault_uri
     "ENVIRONMENT"                       = var.environment
+    "CORS_ALLOWED_ORIGINS"              = "https://${module.containerapp_ui.fqdn}"
   }
+}
+
+module "containerapp_ui" {
+  source                       = "./modules/containerapp-ui"
+  container_app_environment_id = module.containerappenv.id
+  app_name                     = local.ui_app_name
+  resource_group_name          = module.resourcegroup.resource_group_name
+  acr_login_server             = module.acr.login_server
+  acr_username                 = module.acr.admin_username
+  acr_password                 = module.acr.admin_password
 }
 
 module "keyvault" {
@@ -110,14 +127,14 @@ module "keyvault" {
   location            = local.location
   resource_group_name = module.resourcegroup.resource_group_name
   secrets = {
-    "resource--group--name"                   = module.resourcegroup.resource_group_name
-    "openai--endpoint"                        = module.openai.endpoint
-    "openai--api--key"                        = module.openai.primary_key
-    "search--endpoint"                        = module.aisearch.endpoint
-    "search--api--key"                        = module.aisearch.primary_key
-    "storage--connection--string"             = module.storage.primary_connection_string
-    "appinsights--connection--string"         = module.appinsights.connection_string
-    "acr--login--server"                      = module.acr.login_server
+    "resource--group--name"           = module.resourcegroup.resource_group_name
+    "openai--endpoint"                = module.openai.endpoint
+    "openai--api--key"                = module.openai.primary_key
+    "search--endpoint"                = module.aisearch.endpoint
+    "search--api--key"                = module.aisearch.primary_key
+    "storage--connection--string"     = module.storage.primary_connection_string
+    "appinsights--connection--string" = module.appinsights.connection_string
+    "acr--login--server"              = module.acr.login_server
   }
 }
 
