@@ -1,0 +1,124 @@
+trigger: none
+pr: none
+
+parameters:
+- name: ENVIRONMENT
+  displayName: Environment to destroy
+  type: string
+  default: dev
+  values:
+  - dev
+  - prod
+- name: CONFIRM
+  displayName: 'Type the environment name (dev or prod) to confirm destruction'
+  type: string
+  default: ''
+
+variables:
+- group: PolicyAnalyzAIInfra
+- name: TF_STATE_RESOURCE_GROUP
+  value: polanalyai-state-rg
+- name: TF_STATE_ACCOUNT
+  value: paiv2stateacc
+- name: TF_STATE_CONTAINER
+  value: polanalyai-infra-${{ parameters.ENVIRONMENT }}
+- name: RESOURCE_GROUP_NAME
+  value: polanalyai-infra-${{ parameters.ENVIRONMENT }}-rg
+- name: OPENAI_NAME
+  value: polanalyai-infra-${{ parameters.ENVIRONMENT }}-oai
+- name: KEY_VAULT_NAME
+  value: polanalyai-infra-${{ parameters.ENVIRONMENT }}-kv
+- name: LOCATION
+  value: australiaeast
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+- stage: ConfirmDestroy
+  displayName: Confirm Destroy
+  jobs:
+  - job: Validate
+    displayName: Validate confirmation input
+    steps:
+    - script: |
+        if [ "${{ parameters.CONFIRM }}" != "${{ parameters.ENVIRONMENT }}" ]; then
+          echo "##vso[task.logissue type=error]CONFIRM must be set to '${{ parameters.ENVIRONMENT }}' to destroy the ${{ parameters.ENVIRONMENT }} environment. Aborting."
+          exit 1
+        fi
+      displayName: Check confirmation parameter
+
+- stage: DestroyInfra
+  displayName: Destroy ${{ parameters.ENVIRONMENT }} infra
+  dependsOn: ConfirmDestroy
+  condition: succeeded()
+  jobs:
+  - deployment: Destroy
+    displayName: Terraform destroy
+    environment: 'policyanalyzai-destroy-${{ parameters.ENVIRONMENT }}'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+
+          - script: |
+              wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+              echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+              sudo apt-get update && sudo apt-get install -y terraform
+            displayName: Install Terraform
+
+          - task: AzureCLI@2
+            displayName: terraform init & destroy
+            inputs:
+              azureSubscription: $(AZURE_SUBSCRIPTION)
+              scriptType: bash
+              scriptLocation: inlineScript
+              workingDirectory: $(Build.SourcesDirectory)/cicd/tf
+              inlineScript: |
+                set -euo pipefail
+
+                STATE_KEY=$(az storage account keys list \
+                  --account-name "$(TF_STATE_ACCOUNT)" \
+                  --resource-group "$(TF_STATE_RESOURCE_GROUP)" \
+                  --query '[0].value' -o tsv)
+
+                terraform init \
+                  -backend-config="resource_group_name=$(TF_STATE_RESOURCE_GROUP)" \
+                  -backend-config="storage_account_name=$(TF_STATE_ACCOUNT)" \
+                  -backend-config="container_name=$(TF_STATE_CONTAINER)" \
+                  -backend-config="key=terraform.tfstate" \
+                  -backend-config="access_key=$STATE_KEY"
+
+                terraform destroy \
+                  -var-file="variables/${{ parameters.ENVIRONMENT }}.tfvars" \
+                  -auto-approve
+
+          # Fallback purge in case the resources were already removed from state
+          # (e.g. manually) before terraform destroy ran, leaving them soft-deleted.
+          - task: AzureCLI@2
+            displayName: Purge soft-deleted Cognitive Services account (fallback)
+            condition: always()
+            inputs:
+              azureSubscription: $(AZURE_SUBSCRIPTION)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                az cognitiveservices account purge \
+                  --location "$(LOCATION)" \
+                  --resource-group "$(RESOURCE_GROUP_NAME)" \
+                  --name "$(OPENAI_NAME)" \
+                  || echo "No soft-deleted Cognitive Services account named $(OPENAI_NAME) to purge."
+
+          - task: AzureCLI@2
+            displayName: Purge soft-deleted Key Vault (fallback)
+            condition: always()
+            inputs:
+              azureSubscription: $(AZURE_SUBSCRIPTION)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                az keyvault purge \
+                  --name "$(KEY_VAULT_NAME)" \
+                  --location "$(LOCATION)" \
+                  || echo "No soft-deleted Key Vault named $(KEY_VAULT_NAME) to purge."
