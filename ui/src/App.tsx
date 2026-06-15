@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AppBar, Box, Button, Container, Stack, Toolbar, Typography } from '@mui/material';
+import { Alert, AppBar, Box, Button, Container, Stack, Toolbar, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { AskPage } from './features/ask/AskPage';
 import { UploadPage } from './features/upload/UploadPage';
@@ -35,7 +35,18 @@ export default function App() {
       </AppBar>
 
       <Container maxWidth="md" sx={{ display: 'flex', flexDirection: 'column', gap: 3, py: 3, flexGrow: 1 }}>
-        <Stack direction="row" spacing={1}>
+        <Alert severity="info">
+          <Typography variant="body2">
+            Upload PDF, DOCX, or TXT policy documents to build a searchable corpus — each one is split into
+            chunks, embedded, and indexed.
+          </Typography>
+          <Typography variant="body2">
+            Then use Ask to ask questions in plain English; answers are generated from your indexed
+            documents with citations back to the source chunks.
+          </Typography>
+        </Alert>
+
+        <Stack direction="row" spacing={1} sx={{ justifyContent: 'center' }}>
           <Button variant={tab === 'ask' ? 'contained' : 'outlined'} onClick={() => setTab('ask')}>
             Ask
           </Button>
@@ -44,7 +55,7 @@ export default function App() {
           </Button>
         </Stack>
 
-        <Box>{tab === 'ask' ? <AskPage /> : <UploadPage />}</Box>
+        <Box sx={{ width: '100%', maxWidth: 640, mx: 'auto' }}>{tab === 'ask' ? <AskPage /> : <UploadPage />}</Box>
       </Container>
 
       <Footer>Designed by gifthove</Footer>
