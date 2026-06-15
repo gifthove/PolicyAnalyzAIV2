@@ -20,7 +20,8 @@
       "Bash(terraform validate *)",
       "Bash(terraform init *)",
       "Bash(npm run *)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(../.venv/Scripts/pip install *)"
     ]
   }
 }

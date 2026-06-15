@@ -136,3 +136,19 @@ def test_blob_storage_failure(mock_blob_class):
     )
     assert response.status_code == 500
     assert "blob storage" in response.json()["detail"]
+
+
+@patch("app.routes.documents.delete_document")
+def test_delete_document_happy_path(mock_delete):
+    response = client.delete("/documents/doc-1")
+    assert response.status_code == 204
+    mock_delete.assert_called_once_with("doc-1")
+
+
+@patch("app.routes.documents.delete_document")
+def test_delete_document_failure(mock_delete):
+    mock_delete.side_effect = Exception("Azure error")
+
+    response = client.delete("/documents/doc-1")
+    assert response.status_code == 500
+    assert "Failed to delete" in response.json()["detail"]
