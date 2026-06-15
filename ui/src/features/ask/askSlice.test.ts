@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { QueryResponse } from '../../api/query';
-import askReducer, { setQuestion, submitQuestion } from './askSlice';
+import askReducer, { resetAsk, setQuestion, submitQuestion } from './askSlice';
 
 const initialState = askReducer(undefined, { type: '@@init' });
 
@@ -40,5 +40,22 @@ describe('askSlice', () => {
 
     expect(state.status).toBe('error');
     expect(state.error).toBe('Failed to answer query');
+  });
+
+  it('clears the question, result, and error on reset', () => {
+    const response: QueryResponse = { answer: 'Yes [1].', citations: [] };
+    const populated = {
+      question: 'What is the leave policy?',
+      result: response,
+      status: 'error' as const,
+      error: 'previous failure',
+    };
+
+    const state = askReducer(populated, resetAsk());
+
+    expect(state.question).toBe('');
+    expect(state.result).toBeNull();
+    expect(state.status).toBe('idle');
+    expect(state.error).toBeNull();
   });
 });
