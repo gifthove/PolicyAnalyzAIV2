@@ -26,6 +26,12 @@ const askSlice = createSlice({
     setQuestion(state, action: PayloadAction<string>) {
       state.question = action.payload;
     },
+    resetAsk(state) {
+      state.question = '';
+      state.result = null;
+      state.status = 'idle';
+      state.error = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -44,5 +50,5 @@ const askSlice = createSlice({
   },
 });
 
-export const { setQuestion } = askSlice.actions;
+export const { setQuestion, resetAsk } = askSlice.actions;
 export default askSlice.reducer;
