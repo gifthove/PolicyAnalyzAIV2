@@ -1,9 +1,10 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Provider } from 'react-redux';
+import { CssBaseline, ThemeProvider } from '@mui/material';
 import App from './App';
 import { store } from './app/store';
-import './styles/global.css';
+import { theme } from './theme';
 
 const container = document.getElementById('root');
 if (!container) {
@@ -13,7 +14,10 @@ if (!container) {
 createRoot(container).render(
   <StrictMode>
     <Provider store={store}>
-      <App />
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <App />
+      </ThemeProvider>
     </Provider>
   </StrictMode>,
 );

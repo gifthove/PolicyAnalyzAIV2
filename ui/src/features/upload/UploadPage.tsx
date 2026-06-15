@@ -1,7 +1,27 @@
 import { useRef, useState, type FormEvent } from 'react';
+import { Alert, Box, Button, Card, CardContent, Stack, TextField, Typography } from '@mui/material';
+import { styled } from '@mui/material/styles';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import { resetUpload, submitUpload } from './uploadSlice';
-import styles from './Upload.module.css';
+
+const FileField = styled('label')(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: theme.spacing(1),
+  padding: theme.spacing(1.5),
+  border: `1px dashed ${theme.palette.divider}`,
+  borderRadius: theme.shape.borderRadius,
+  cursor: 'pointer',
+  fontSize: theme.typography.body2.fontSize,
+}));
+
+const ResultRow = styled(Box)({
+  display: 'flex',
+  flexDirection: 'column',
+});
 
 export function UploadPage() {
   const dispatch = useAppDispatch();
@@ -32,46 +52,83 @@ export function UploadPage() {
   };
 
   return (
-    <div className={styles.container}>
-      <form onSubmit={handleSubmit} className={styles.form}>
-        <label className={styles.field}>
-          Document (PDF, DOCX, or TXT — max 20 MB)
+    <Stack spacing={3}>
+      <Stack component="form" onSubmit={handleSubmit} spacing={2} sx={{ maxWidth: 24 * 16 }}>
+        <FileField>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <UploadFileIcon fontSize="small" color="action" />
+            Document (PDF, DOCX, or TXT — max 20 MB)
+          </Box>
           <input ref={fileInputRef} type="file" accept=".pdf,.docx,.txt" required />
-        </label>
-        <label className={styles.field}>
-          Source name (optional)
-          <input type="text" value={sourceName} onChange={(event) => setSourceName(event.target.value)} />
-        </label>
-        <label className={styles.field}>
-          Policy date (optional)
-          <input type="date" value={policyDate} onChange={(event) => setPolicyDate(event.target.value)} />
-        </label>
-        <button type="submit" disabled={status === 'loading'}>
+        </FileField>
+        <TextField
+          label="Source name (optional)"
+          value={sourceName}
+          onChange={(event) => setSourceName(event.target.value)}
+        />
+        <TextField
+          label="Policy date (optional)"
+          type="date"
+          value={policyDate}
+          onChange={(event) => setPolicyDate(event.target.value)}
+          slotProps={{ inputLabel: { shrink: true } }}
+        />
+        <Button
+          type="submit"
+          variant="contained"
+          startIcon={<CloudUploadIcon />}
+          disabled={status === 'loading'}
+          sx={{ alignSelf: 'flex-start' }}
+        >
           {status === 'loading' ? 'Uploading...' : 'Upload'}
-        </button>
-      </form>
+        </Button>
+      </Stack>
 
-      {error && <p className={styles.error}>{error}</p>}
+      {error && <Alert severity="error">{error}</Alert>}
 
       {result && (
-        <div className={styles.result}>
-          <dl>
-            <dt>Document ID</dt>
-            <dd>{result.document_id}</dd>
-            <dt>Status</dt>
-            <dd>{result.status}</dd>
-            <dt>Words / characters</dt>
-            <dd>
-              {result.word_count} / {result.char_count}
-            </dd>
-            <dt>Chunks indexed</dt>
-            <dd>{result.chunk_count}</dd>
-          </dl>
-          <button type="button" onClick={handleReset}>
-            Upload another
-          </button>
-        </div>
+        <Card variant="outlined">
+          <CardContent>
+            <Stack spacing={1.5}>
+              <ResultRow>
+                <Typography variant="caption" color="text.secondary">
+                  Document ID
+                </Typography>
+                <Typography>{result.document_id}</Typography>
+              </ResultRow>
+              <ResultRow>
+                <Typography variant="caption" color="text.secondary">
+                  Status
+                </Typography>
+                <Typography>{result.status}</Typography>
+              </ResultRow>
+              <ResultRow>
+                <Typography variant="caption" color="text.secondary">
+                  Words / characters
+                </Typography>
+                <Typography>
+                  {result.word_count} / {result.char_count}
+                </Typography>
+              </ResultRow>
+              <ResultRow>
+                <Typography variant="caption" color="text.secondary">
+                  Chunks indexed
+                </Typography>
+                <Typography>{result.chunk_count}</Typography>
+              </ResultRow>
+              <Button
+                type="button"
+                variant="outlined"
+                startIcon={<RestartAltIcon />}
+                onClick={handleReset}
+                sx={{ alignSelf: 'flex-start' }}
+              >
+                Upload another
+              </Button>
+            </Stack>
+          </CardContent>
+        </Card>
       )}
-    </div>
+    </Stack>
   );
 }
