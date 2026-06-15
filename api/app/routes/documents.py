@@ -13,7 +13,7 @@ from app.services.blob_service import upload_blob
 from app.services.chunking_service import chunk_text
 from app.services.document_service import SUPPORTED_TYPES, extract_text
 from app.services.embedding_service import get_embeddings
-from app.services.search_service import IndexedChunk, index_chunks
+from app.services.search_service import IndexedChunk, delete_document, index_chunks
 
 logger = logging.getLogger(__name__)
 
@@ -107,3 +107,17 @@ async def upload_document(
         char_count=char_count,
         chunk_count=chunk_count,
     )
+
+
+@router.delete(
+    "/documents/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    tags=["documents"],
+)
+async def delete_document_chunks(document_id: str) -> None:
+    logger.info("Delete request received: document_id=%s", document_id)
+    try:
+        await asyncio.to_thread(delete_document, document_id)
+    except Exception as exc:
+        logger.error("Delete failed: document_id=%s error=%s", document_id, exc)
+        raise HTTPException(status_code=500, detail=f"Failed to delete document chunks: {exc}")

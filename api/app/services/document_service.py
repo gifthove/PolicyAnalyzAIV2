@@ -24,9 +24,9 @@ def extract_text(file_bytes: bytes, extension: str) -> Tuple[str, int, int]:
 
 
 def _extract_pdf(file_bytes: bytes) -> str:
-    from PyPDF2 import PdfReader
-    reader = PdfReader(io.BytesIO(file_bytes))
-    return "\n".join(page.extract_text() or "" for page in reader.pages)
+    import pdfplumber
+    with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+        return "\n".join(page.extract_text() or "" for page in pdf.pages)
 
 
 def _extract_docx(file_bytes: bytes) -> str:
