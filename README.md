@@ -11,7 +11,7 @@ AI-powered policy analysis platform built on Azure, deployed via Azure DevOps pi
 | API                | FastAPI (Python), containerised via Docker |
 | Container Registry | Azure Container Registry (ACR)             |
 | Hosting            | Azure Container Apps (Linux, Docker)       |
-| AI                 | Azure OpenAI (`gpt-4.1`), Azure AI Search  |
+| AI                 | Azure OpenAI (`gpt-5.1`), Azure AI Search  |
 | Storage            | Azure Blob Storage                         |
 | Secrets            | Azure Key Vault                            |
 | Observability      | Application Insights + Log Analytics       |
@@ -305,9 +305,9 @@ The Container App's managed identity is granted `Get`/`List` secret permissions 
 | Deployment                | Model                     | SKU              |
 |---------------------------|---------------------------|------------------|
 | `text-embedding-ada-002`  | text-embedding-ada-002 v2 | Standard         |
-| `gpt-4.1`                 | gpt-4.1 (2025-04-14)      | GlobalStandard   |
+| `gpt-5.1`                 | gpt-5.1 (2025-11-13)      | GlobalStandard   |
 
-> `GlobalStandard` is required for `gpt-4.1` in the `australiaeast` region.
+> `GlobalStandard` is required for `gpt-5.1` in the `australiaeast` region.
 
 ---
 

@@ -98,7 +98,7 @@ module "containerapp" {
   env_vars = {
     "AZURE_OPENAI_ENDPOINT"             = module.openai.endpoint
     "AZURE_OPENAI_EMBEDDING_DEPLOYMENT" = "text-embedding-ada-002"
-    "AZURE_OPENAI_CHAT_DEPLOYMENT"      = "gpt-4.1"
+    "AZURE_OPENAI_CHAT_DEPLOYMENT"      = "gpt-5.1"
     "AZURE_OPENAI_API_VERSION"          = "2024-02-01"
     "AZURE_OPENAI_EMBEDDING_DIMENSIONS" = "1536"
     "AZURE_SEARCH_ENDPOINT"             = module.aisearch.endpoint
